@@ -9,7 +9,7 @@
 **Actions taken:**
 - Group A (likely duplicates): **removed** from template
 - Group B (existing term lacks `part_of`): **removed** from template — existing terms should have `part_of` added instead
-- Group C (different `part_of` target): **retained** in template — require curator review
+- Group C (different `part_of` target): **removed** in template — require curator review
 
 ---
 
