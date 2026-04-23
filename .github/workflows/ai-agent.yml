@@ -150,13 +150,22 @@ jobs:
             const isAllowed = allowedUsers.includes(userLogin);
             const mentionRegex = new RegExp(`@${agentName}\\s+please\\s+([\\s\\S]*)`, "i");
             const mentionMatch = content.match(mentionRegex);
+            // On synchronize we want this workflow to revalidate on push without
+            // re-dispatching the agent from a stale PR body mention.
+            const shouldHonorBodyMention =
+              (context.eventName === "issues" && ["opened", "edited"].includes(context.payload.action)) ||
+              (context.eventName === "pull_request" && ["opened", "edited"].includes(context.payload.action)) ||
+              context.eventName === "issue_comment" ||
+              context.eventName === "pull_request_review_comment";
             const isAgentAssignment =
               (context.eventName === "issues" || context.eventName === "pull_request") &&
               context.payload.action === "assigned" &&
               context.payload.assignee?.login === agentName;
+            const hasQualifiedBodyMention =
+              isAllowed && shouldHonorBodyMention && mentionMatch !== null;
             const qualifiedMention =
-              (isAllowed && mentionMatch !== null) || (isAllowed && isAgentAssignment);
-            const prompt = mentionMatch !== null
+              hasQualifiedBodyMention || (isAllowed && isAgentAssignment);
+            const prompt = hasQualifiedBodyMention
               ? mentionMatch[1].trim()
               : (isAgentAssignment
                 ? "You were assigned to this item. Read the full GitHub context, identify the next concrete action, and carry it through."
@@ -164,6 +173,7 @@ jobs:
 
             console.log(
               `User: ${userLogin}, Allowed: ${isAllowed}, Has mention: ${mentionMatch !== null}, ` +
+              `Honor body mention: ${shouldHonorBodyMention}, ` +
               `Agent assignment: ${isAgentAssignment}`
             );
 
@@ -242,7 +252,7 @@ jobs:
       pull-requests: write
       id-token: write
     runs-on: ubuntu-latest
-    container: ${{ fromJSON(needs.check-mention.outputs.result).useOdkContainer && 'obolibrary/odkfull:latest' || null }}
+    container: ${{ fromJSON(needs.check-mention.outputs.result).useOdkContainer && 'obolibrary/odkfull:v1.6' || null }}
     steps:
       - name: Generate ai4c-agent token
         id: app-token
@@ -274,7 +284,7 @@ jobs:
           echo "${{ env.TOOLS_DIR }}/obo-scripts" >> "$GITHUB_PATH"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Install Python tools
         run: |
