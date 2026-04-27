@@ -79,12 +79,19 @@ For each file in outputs/definitions/input/*.json:
 ```
 
 Each subagent:
-1. Resolves parent label and FMA→UBERON mappings via OLS4
+1. Resolves parent (UBERON confirm / FMA→UBERON / ASCTB-TEMP→UBERON) AND searches for a more
+   specific parent than the source provided
 2. Searches OLS4 for existing UBERON matches per term
-3. Fetches Wikipedia for the specific term, then the parent term, then WebSearch
-4. Writes Aristotelian definitions
-5. Resolves INFER relationship types (is_a vs part_of)
-6. Saves `outputs/definitions/{group_name}.json`
+3. Flags pathological/dysfunctional terms as out-of-scope (UBERON is normal anatomy)
+4. Flags non-standard term names with corrections
+5. Fetches Wikipedia (specific term → parent → WebSearch); checks image caption for relevance
+6. Searches PubMed for a real PMID/DOI to add to `def_xref`
+7. Writes Aristotelian definitions
+8. Resolves relationship type using the structural-vs-classification rule (layers/heads/parts =
+   `part_of`; subtypes/stages = `is_a`)
+9. Saves `outputs/definitions/{group_name}.json` with keys: definitions, wikipedia_images,
+   xrefs, def_xrefs_to_add, resolved_relationships, resolved_parents, confirmed_matches,
+   possible_matches, out_of_scope, name_corrections, unresolvable
 
 **Do not launch more than 8 subagents in parallel** (Playwright/Wikipedia rate limits).
 
@@ -99,12 +106,21 @@ Outputs a summary of remaining issues.
 
 ## QC Checklist Before Finalising
 
-1. No `[PENDING]` definitions remain in `template_final.tsv`
-2. No `INFER` values remain in is_a or part_of columns
-3. Row count = (input terms) − (confirmed matches) − (terms with UNRESOLVABLE parents)
-4. Spot-check 5–10 definitions across different parent groups for anatomical accuracy
-5. Review `outputs/candidates.md` — possible matches need human curator decision
-6. Review `outputs/errors.md` — ASCTB-TEMP parents need curator follow-up
+1. No `[PENDING]` definitions remain in `<name>.template.tsv`
+2. No `INFER` / `NEEDS_MAPPING` / `UNRESOLVABLE` values remain in `is_a` or `part_of`
+3. Every term has a real PMID/DOI (or ISBN) in `def_xref` — ASCTB-TEMP placeholder IRIs do
+   not count as references
+4. Layers / zones / regions / heads / bellies / parts of named structures are in `part_of`,
+   never in `is_a` (the merge script does not auto-correct this — relies on the subagent)
+5. Row count = (input terms) − (confirmed matches) − (out_of_scope) − (UNRESOLVABLE parents)
+6. Spot-check 5–10 definitions for anatomical accuracy across parent groups
+7. Review `<name>-reports/candidates.tsv` — `confirmed_match` rows are auto-excluded;
+   `possible_match` rows need curator decision (accept = exclude / reject = re-add as new)
+8. Review `<name>-reports/out_of_scope.tsv` — pathological/dysfunctional terms flagged
+   for curator decision (drop, reroute to MONDO, keep with PATO qualifier)
+9. Review `<name>-reports/name_corrections.tsv` — agent applied label corrections;
+   confirm and decide whether source name should be added as a synonym
+10. Review `<name>-reports/errors.tsv` — input rows with bad/missing parents
 
 ## Final Delivery
 
@@ -131,6 +147,8 @@ After QC:
 | `src/templates/<name>-reports/input.tsv` | Filtered input rows from source spreadsheet |
 | `src/templates/<name>-reports/errors.tsv` | Input errors (bad/FMA/ASCTB-TEMP parents) |
 | `src/templates/<name>-reports/candidates.tsv` | Pre-mapped + OLS4-confirmed existing terms |
+| `src/templates/<name>-reports/out_of_scope.tsv` | Pathological/dysfunctional terms — curator decides |
+| `src/templates/<name>-reports/name_corrections.tsv` | Source-label → corrected-label rewrites |
 | `bulk_ntr_workflow/outputs/definitions/input/*.json` | Per-group input for subagents |
 | `bulk_ntr_workflow/outputs/definitions/*.json` | Per-group subagent output |
 
