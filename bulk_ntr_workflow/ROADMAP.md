@@ -13,7 +13,51 @@ complete definitions and resolved relationship types.
 
 ---
 
-## Phase 2: Grouping terms vs leaf-node terms
+## Phase 2: Grouping terms — equivalent-class definitions
+
+**Status:** investigation complete (Step 1); design and implementation in progress.
+
+### Step 1 findings (empirical survey of UBERON's existing "muscle of X" group terms)
+
+19 existing UBERON terms named `muscle of X` were inspected via awk over
+`src/ontology/uberon-edit.obo`:
+
+| Pattern | Count | Examples |
+|---|---:|---|
+| `genus and (part_of some Y)` | **14 (74%)** | muscle of neck (UBERON:0002377), muscle of back (UBERON:0002324), muscle of abdomen (UBERON:0002378), muscle of pelvis, muscle of leg, muscle of arm, muscle of larynx, muscle of iris, muscle of pectoral girdle, muscle of digastric group, muscle of pelvic girdle, muscle of pes, muscle of manus, muscle of anal triangle |
+| `genus and (attaches_to_part_of some Y)` | 3 (16%) | muscle of shoulder, muscle of vertebral column, muscle of auditory ossicle |
+| No `intersection_of` (no logical definition) | 2 (10%) | muscle of pelvic diaphragm, muscle of posterior compartment of hindlimb stylopod |
+
+**Genus consistency:**
+- 16/19 use `UBERON:0014892` (skeletal muscle organ, vertebrate)
+- 3/19 use `UBERON:0001630` (muscle organ — broader; used for iris/auditory ossicle/anal triangle muscles, i.e. non-skeletal or finer granularity)
+
+Additional spot-checks of neighbouring group classes:
+- `intrinsic muscle of tongue` (UBERON:0001576): 4 intersection_of axioms
+  (`genus + attaches_to_part_of + innervated_by + part_of`) — multi-axiom, complex.
+- `extrinsic muscle of tongue` (UBERON:0001575): 4 intersection_of axioms (no `part_of`,
+  has `attaches_to`).
+- `facial muscle` (UBERON:0001577): `genus + innervated_by some facial nerve` only —
+  defined by innervation rather than location.
+
+**Decision: proceed with simple `genus + part_of some Y` pattern.** 74% coverage of
+existing UBERON convention is sufficient. The genus is `UBERON:0014892` for the muscular
+system; the agent will identify it from similar terms via obo-grep rather than hardcode.
+
+### Future patterns (deferred — not in current Phase 2 scope)
+
+Once the simple `part_of`-only template is proven, additional ROBOT templates can be
+added for:
+- `genus and (attaches_to_part_of some Y)` — covers ~16% of muscle group terms
+  (muscle of shoulder, vertebral column, auditory ossicle)
+- `genus and (innervated_by some Y)` — function/innervation-defined groups
+  (facial muscle, possibly muscle of facial expression in our request set)
+- Multi-axiom group definitions (intrinsic/extrinsic muscle of tongue style) — low
+  frequency; manual curation is probably appropriate even in the long term.
+
+For now these go to `<name>-reports/manual_curation.tsv` for direct curator addition.
+
+### Original Phase 2 problem statement (preserved for context)
 
 ### The problem
 
