@@ -15,6 +15,20 @@ model: sonnet
 You process one anatomical term group for the UBERON NTR ROBOT template workflow.
 Your output drives Stage 4 (merge) and the final QC reports.
 
+## Term types: `leaf` vs `group`
+
+Each term in your input has a `term_type` field — either `"leaf"` (a specific named
+anatomical entity) or `"group"` (a collective class of structures unified by region,
+function, layer, or compartment). The two types follow different processing paths:
+
+- **Leaf terms** (e.g. `clavicular head of pectoralis major muscle`,
+  `articularis genu muscle`): write an Aristotelian definition; resolve `is_a` vs
+  `part_of` to the parent. See Steps 1–7 below.
+- **Group terms** (e.g. `pelvic floor muscle`, `thoracic wall muscle`): write a
+  collective-style definition AND identify a `genus + part_of some Y` equivalent-class
+  pattern by inspecting how UBERON defines similar terms. See "Group term workflow"
+  below in addition to Steps 1–6.
+
 ## Input
 
 You receive a path to a group JSON file at:
@@ -24,20 +38,33 @@ The file contains:
 ```json
 {
   "group_name": "...",
-  "parent_id": "UBERON:xxxxxxx | NEEDS_MAPPING:FMA:nnnnn | UNRESOLVABLE:parent_label | UNKNOWN",
+  "parent_id": "UBERON:xxxxxxx | NEEDS_MAPPING:FMA:nnnnn | UNRESOLVABLE:... | GROUPING_TERMS",
   "parent_label": "...",
+  "term_counts": {"leaf": 1, "group": 0},
   "terms": [
     {
       "ntr_id": "http://purl.obolibrary.org/obo/UBERON_9900001",
       "label": "term label",
-      "is_a":    "INFER:UBERON:xxxxxxx | NEEDS_MAPPING:FMA:nnnnn | UNRESOLVABLE:parent_label",
+      "term_type": "leaf",
+      "is_a":    "INFER:UBERON:xxxxxxx | NEEDS_MAPPING:FMA:nnnnn | UNRESOLVABLE:...",
       "part_of": "INFER:UBERON:xxxxxxx | ...",
       "def_xref": "ref1|ref2|..."
     },
-    ...
+    {
+      "ntr_id": "http://purl.obolibrary.org/obo/UBERON_9900002",
+      "label": "another term label",
+      "term_type": "group",
+      "genus": "",
+      "location": "",
+      "def_xref": "ref1|ref2|..."
+    }
   ]
 }
 ```
+
+A group with `parent_id == "GROUPING_TERMS"` is the special grouping bucket — every
+term in it is `term_type: "group"` and you must determine genus + part_of differentiator
+per term using the Group term workflow.
 
 ## Step 1: Resolve and Refine the Parent Term
 
@@ -137,17 +164,29 @@ Every new UBERON term must have at least one real publication reference (PMID or
 
 For each term without a confirmed existing UBERON match:
 
-**Form:** Aristotelian — `"A {genus} that/which {differentia}."`
-- **Genus**: the nearest structural type (e.g. "ovarian follicle layer", "muscle head",
-  "epithelial layer") — use anatomical knowledge + OLS4. Do NOT use the parent term as genus
-  unless it genuinely is the structural type.
-- **Differentia**: location, cellular composition, boundaries, function, or developmental stage.
+**Leaf terms (`term_type: "leaf"`):** Aristotelian form —
+`"A {genus} that/which {differentia}."`
+- **Genus**: the nearest structural type (e.g. "muscle head", "epithelial layer") — use
+  anatomical knowledge + OLS4. Do NOT use the parent term as genus unless it genuinely
+  is the structural type.
+- **Differentia**: location, cellular composition, boundaries, function, or developmental
+  stage.
 - **Length**: 20–60 words, 1–2 sentences maximum.
 - **Must NOT be**: merely "A structure that is part of X" or "A type of X".
 
-## Step 7: Resolve Relationship Types
+**Group terms (`term_type: "group"`):** collective form —
+`"A {plural genus} that/which {unifying differentia}."` or
+`"A group of {genus class} located in/that compose/that innervate {Y}."`
+- **Plural genus**: "muscles", "anatomical structures", etc.
+- **Unifying differentia**: the property that defines membership — usually the location
+  (e.g. "muscles part of the pelvic floor"), function, or innervation.
+- Where members are known and bounded, enumerate: "...comprising the X, Y, and Z."
+- Length still 20–60 words.
 
-For each term, determine whether it should be `is_a` or `part_of` the resolved parent:
+## Step 7: Resolve Relationship Types (LEAF terms only)
+
+For each `term_type: "leaf"` term, determine whether it should be `is_a` or `part_of` the
+resolved parent:
 
 **Use `part_of` when the term is a physical subdivision of the parent:**
 - Named **layer**, zone, region, wall, surface, border, lumen, stroma, cortex, medulla
@@ -175,7 +214,61 @@ sub-structures and `is_a` for stages or functional subtypes.
 If unclear after applying these rules: search `ols4` for existing children of the same parent
 and check the relationship type they use; apply the same pattern.
 
-Record each decision in `resolved_relationships`.
+Record each decision in `resolved_relationships`. (Skip for `term_type: "group"` —
+relationships for those are encoded as `genus + part_of some Y` equivalent classes;
+see Step 8.)
+
+## Step 8: Group term equivalent class — genus + part_of some Y (GROUP terms only)
+
+For each `term_type: "group"` term, find existing UBERON terms with similar names and
+mirror their equivalent-class definition pattern. Stage 1 has already routed the term to
+the groups template (with EC directives); your job is to populate `genus` and `location`.
+
+The supported pattern is **only** `genus and (part_of some Y)`. Anything more complex
+gets punted to manual_curation.
+
+**Procedure:**
+
+1. Use `obo-grep.pl` (via Bash) — or `awk` if obo-grep is not in PATH — to find UBERON
+   terms with similar labels in `src/ontology/uberon-edit.obo`. Examples:
+
+   ```bash
+   awk 'BEGIN{RS=""} /\nname: muscle of [a-z].*\n/' src/ontology/uberon-edit.obo
+   awk 'BEGIN{RS=""} /\nname: .*pelvic floor.*\n/' src/ontology/uberon-edit.obo
+   ```
+
+2. Inspect the `intersection_of` lines of similar terms. The most common UBERON pattern
+   for muscle group terms is:
+   ```
+   intersection_of: UBERON:0014892 ! skeletal muscle organ, vertebrate
+   intersection_of: part_of UBERON:NNNNNNN ! some region
+   ```
+   Genus is typically `UBERON:0014892` (skeletal muscle organ, vertebrate); use
+   `UBERON:0001630` (muscle organ) only if a similar non-skeletal term uses it.
+
+3. Determine `Y` (the differentiator) from anatomical context. For "thoracic wall muscle",
+   Y = the UBERON term for "thoracic wall". Look it up via OLS4 or by name-grep over
+   uberon-edit.obo.
+
+4. **If at least one similar UBERON term uses the simple `genus + part_of some Y` pattern
+   AND that pattern fits this term**: emit a `group_template_rows[label]` entry with
+   `{"genus": "UBERON:NNNNNNN", "location": "UBERON:MMMMMMM"}`.
+
+5. **Otherwise — pattern unsupported**: emit a `manual_curation` entry. Reasons to punt:
+   - Similar UBERON terms use `innervated_by some Y` (function-defined groups like facial
+     muscle), not part_of.
+   - Similar UBERON terms use multiple intersection_of axioms (e.g. attaches_to_part_of +
+     innervated_by + part_of for intrinsic muscle of tongue).
+   - No clear genus class identifiable.
+   - The group is defined by something the simple pattern can't express (e.g. layer
+     within a hollow organ, has_part-defined collective).
+
+   In the manual_curation entry, include:
+   - The proposed definition you wrote in Step 6
+   - The reason this term doesn't fit the simple pattern
+   - 3–5 most similar UBERON terms found via obo-grep, with their full
+     `intersection_of` lines (so the curator can see the precedent)
+   - A suggestion for what equivalent class the curator should write
 
 ## Output Format
 
@@ -196,11 +289,29 @@ Save to: `bulk_ntr_workflow/outputs/definitions/{group_name}.json`
     "term label": "PMID:12345678|PMID:87654321"
   },
   "resolved_relationships": {
-    "term label": "is_a | part_of"
+    "leaf term label": "is_a | part_of"
   },
   "resolved_parents": {
-    "term label": "UBERON:xxxxxxx"
+    "leaf term label": "UBERON:xxxxxxx"
   },
+  "group_template_rows": {
+    "group term label": {
+      "genus":    "UBERON:0014892",
+      "location": "UBERON:0002047"
+    }
+  },
+  "manual_curation": [
+    {
+      "label": "muscle of facial expression",
+      "definition": "A group of muscles innervated by the facial nerve...",
+      "reason": "UBERON's similar 'facial muscle' (UBERON:0001577) uses innervated_by some facial nerve, not part_of. Out of simple part_of-only template scope.",
+      "similar_terms": [
+        {"id": "UBERON:0001577", "label": "facial muscle",
+         "intersection_of": ["UBERON:0014892 ! skeletal muscle organ, vertebrate", "innervated_by UBERON:0001647 ! facial nerve"]}
+      ],
+      "suggestion": "Curator should add directly to uberon-edit.obo with the same innervated_by pattern."
+    }
+  ],
   "confirmed_matches": [
     {
       "label": "term label",
@@ -255,6 +366,12 @@ Omit empty lists/dicts. Do NOT include a `fma_resolutions` key — use `resolved
 - Layers, zones, heads, bellies, parts of named structures → must be `part_of`, never `is_a`.
 - Pathological/dysfunctional terms → must appear in `out_of_scope`.
 - Non-standard names → must appear in `name_corrections`.
+- **For `term_type: "group"` terms**: every term must end up in EITHER
+  `group_template_rows` (with both `genus` and `location` populated as real UBERON IDs)
+  OR `manual_curation` (with proposed definition + similar UBERON terms). No group term
+  should be silently absent from both.
+- `resolved_relationships` and `resolved_parents` apply to LEAF terms only — do not emit
+  these keys for group terms.
 - Do NOT invent UBERON IDs.
 
 ## Tools Available
@@ -264,3 +381,7 @@ Omit empty lists/dicts. Do NOT include a `fma_resolutions` key — use `resolved
 - `fetch-wiki-info` skill — Wikidata + Wikipedia structured fetch
 - `playwright` MCP — navigate Wikipedia for parent articles
 - `artl-mcp` — fetch and verify literature (PMID, DOI)
+- `awk` over `src/ontology/uberon-edit.obo` — find existing UBERON terms by name pattern
+  and inspect their `intersection_of` axioms (used for group term EC pattern detection).
+  `obo-grep.pl` is documented as in PATH but may be missing on some setups; awk is the
+  fallback (`awk 'BEGIN{RS=""} /\nname: PATTERN\n/' src/ontology/uberon-edit.obo`).

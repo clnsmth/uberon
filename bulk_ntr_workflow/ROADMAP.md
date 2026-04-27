@@ -15,7 +15,10 @@ complete definitions and resolved relationship types.
 
 ## Phase 2: Grouping terms — equivalent-class definitions
 
-**Status:** investigation complete (Step 1); design and implementation in progress.
+**Status:** Step 1 (investigation), Steps 2–6 (implementation) complete.
+End-to-end test on muscular-system pending — Stage 1 smoke-tested (20 group / 55 leaf
+on 75 input terms); Stage 4 smoke-tested (correctly flags 20 group terms as
+"EC incomplete" pre-agent). Agent run not yet performed.
 
 ### Step 1 findings (empirical survey of UBERON's existing "muscle of X" group terms)
 

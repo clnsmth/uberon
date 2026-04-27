@@ -58,6 +58,18 @@ uv run --with openpyxl scripts/generate_template.py \
 **ID assignment:** `UBERON:99` + 5-digit counter (e.g. `UBERON:9900001`). Adjust `--start-id` to avoid
 collisions with other NTR batches.
 
+**Term-type pre-classification (Phase 2):** Stage 1 also classifies each term as `leaf` or
+`group` using linguistic regex rules:
+- **Leaf terms** (specific named structures, subdivisions of named muscles) → routed to
+  `<name>.template.tsv` with `SC %` and `SC BFO:0000050 some %` directives (asserted
+  is_a/part_of). The agent picks one in Stage 3.
+- **Group terms** (collective classes — "muscle of X", "X muscle group", regional
+  collectives) → routed to `<name>-groups.template.tsv` with `EC %` (genus) and
+  `EC BFO:0000050 some %` (location) directives. The agent fills genus + location in
+  Stage 3 by inspecting how UBERON defines similar terms.
+
+`input.tsv` carries the `term_type` column so curators can review the classification.
+
 ## Stage 2: Group by Parent
 
 ```bash
@@ -86,12 +98,16 @@ Each subagent:
 4. Flags non-standard term names with corrections
 5. Fetches Wikipedia (specific term → parent → WebSearch); checks image caption for relevance
 6. Searches PubMed for a real PMID/DOI to add to `def_xref`
-7. Writes Aristotelian definitions
-8. Resolves relationship type using the structural-vs-classification rule (layers/heads/parts =
-   `part_of`; subtypes/stages = `is_a`)
-9. Saves `outputs/definitions/{group_name}.json` with keys: definitions, wikipedia_images,
-   xrefs, def_xrefs_to_add, resolved_relationships, resolved_parents, confirmed_matches,
-   possible_matches, out_of_scope, name_corrections, unresolvable
+7. Writes Aristotelian (leaf) or collective (group) definitions
+8. **For LEAF terms**: resolves relationship type using the structural-vs-classification
+   rule (layers/heads/parts = `part_of`; subtypes/stages = `is_a`)
+9. **For GROUP terms**: uses awk over `src/ontology/uberon-edit.obo` to find similar UBERON
+   group terms; if they use `genus + part_of some Y` pattern, populates `group_template_rows`
+   with `{genus, location}`; otherwise punts to `manual_curation`
+10. Saves `outputs/definitions/{group_name}.json` with keys: definitions, wikipedia_images,
+    xrefs, def_xrefs_to_add, resolved_relationships, resolved_parents, group_template_rows,
+    confirmed_matches, possible_matches, out_of_scope, name_corrections, manual_curation,
+    unresolvable
 
 **Do not launch more than 8 subagents in parallel** (Playwright/Wikipedia rate limits).
 
@@ -106,53 +122,81 @@ Outputs a summary of remaining issues.
 
 ## QC Checklist Before Finalising
 
-1. No `[PENDING]` definitions remain in `<name>.template.tsv`
-2. No `INFER` / `NEEDS_MAPPING` / `UNRESOLVABLE` values remain in `is_a` or `part_of`
-3. Every term has a real PMID/DOI (or ISBN) in `def_xref` — ASCTB-TEMP placeholder IRIs do
-   not count as references
-4. Layers / zones / regions / heads / bellies / parts of named structures are in `part_of`,
-   never in `is_a` (the merge script does not auto-correct this — relies on the subagent)
-5. Row count = (input terms) − (confirmed matches) − (out_of_scope) − (UNRESOLVABLE parents)
-6. Spot-check 5–10 definitions for anatomical accuracy across parent groups
-7. Review `<name>-reports/candidates.tsv` — `confirmed_match` rows are auto-excluded;
-   `possible_match` rows need curator decision (accept = exclude / reject = re-add as new)
-8. Review `<name>-reports/out_of_scope.tsv` — pathological/dysfunctional terms flagged
-   for curator decision (drop, reroute to MONDO, keep with PATO qualifier)
-9. Review `<name>-reports/name_corrections.tsv` — agent applied label corrections;
-   confirm and decide whether source name should be added as a synonym
-10. Review `<name>-reports/errors.tsv` — input rows with bad/missing parents
+**Both templates:**
+1. No `[PENDING]` definitions remain
+2. Every term has a real PMID/DOI (or ISBN) in `def_xref` — ASCTB-TEMP placeholder IRIs
+   do not count as references
+
+**Leaf template (`<name>.template.tsv`):**
+3. No `INFER` / `NEEDS_MAPPING` / `UNRESOLVABLE` values in `is_a` or `part_of` columns
+4. Layers / zones / regions / heads / bellies / parts of named structures are in
+   `part_of`, never `is_a`
+
+**Groups template (`<name>-groups.template.tsv`):**
+5. Every row has both `genus` and `location` populated with real UBERON IDs (the merge
+   script flags incomplete rows as "EC incomplete" — those need agent re-run or manual
+   curator addition)
+6. The `genus` column uses a sensible class — typically `UBERON:0014892` (skeletal
+   muscle organ, vertebrate) for muscle group terms
+
+**Reports:**
+7. Row counts: input − confirmed_match − out_of_scope − manual_curation = leaf + group
+8. Spot-check 5–10 definitions for anatomical accuracy
+9. Review `<name>-reports/candidates.tsv` — `confirmed_match` auto-excluded;
+   `possible_match` rows need curator decision
+10. Review `<name>-reports/out_of_scope.tsv` — pathological/dysfunctional terms;
+    curator decides: drop, reroute to MONDO, keep with PATO qualifier
+11. Review `<name>-reports/name_corrections.tsv` — confirm and decide whether source
+    name should be added as a synonym
+12. Review `<name>-reports/manual_curation.tsv` — group terms that don't fit the
+    simple `part_of` pattern; curator adds these directly to `uberon-edit.obo`,
+    using the similar UBERON terms listed for guidance
+13. Review `<name>-reports/errors.tsv` — input rows with bad/missing parents
 
 ## Final Delivery
 
-After QC:
-1. Copy `outputs/template_final.tsv` → `src/templates/<name>.template.tsv`
+After QC, both templates need to be registered with ODK.
+
+1. Templates are already in `src/templates/<name>.template.tsv` and
+   `src/templates/<name>-groups.template.tsv` (Stage 4 wrote them in place).
 2. Create `src/templates/<name>-prefixes.owl` declaring `foaf:depiction` and any
-   other annotation properties not already in the standard Uberon prefixes
-3. Register in `src/ontology/uberon-odk.yaml` under `components:`:
+   other annotation properties not already in the standard Uberon prefixes (the same
+   prefixes file works for both templates).
+3. Register both templates in `src/ontology/uberon-odk.yaml` under `components:`:
    ```yaml
    - filename: components/<name>.owl
      use_template: true
      template: templates/<name>.template.tsv
      mappings:
        - templates/<name>-prefixes.owl
+   - filename: components/<name>-groups.owl
+     use_template: true
+     template: templates/<name>-groups.template.tsv
+     mappings:
+       - templates/<name>-prefixes.owl
    ```
-4. Run `sh run.sh make update_repo` to regenerate the Makefile
+4. Run `sh run.sh make update_repo` to regenerate the Makefile.
 
 ## Output Files Reference
 
 | File | Description |
 |---|---|
-| `bulk_ntr_workflow/outputs/template_initial.tsv` | Working copy; placeholder definitions |
-| `src/templates/<name>.template.tsv` | Final template; updated in-place by Stage 4 |
-| `src/templates/<name>-reports/input.tsv` | Filtered input rows from source spreadsheet |
+| `bulk_ntr_workflow/outputs/template_initial.tsv` | Leaf working copy (SC directives) |
+| `bulk_ntr_workflow/outputs/template_groups_initial.tsv` | Groups working copy (EC directives) |
+| `src/templates/<name>.template.tsv` | Final leaf template; updated in-place by Stage 4 |
+| `src/templates/<name>-groups.template.tsv` | Final groups template (equivalent class definitions) |
+| `src/templates/<name>-reports/input.tsv` | Filtered input rows + `term_type` classification |
 | `src/templates/<name>-reports/errors.tsv` | Input errors (bad/FMA/ASCTB-TEMP parents) |
 | `src/templates/<name>-reports/candidates.tsv` | Pre-mapped + OLS4-confirmed existing terms |
-| `src/templates/<name>-reports/out_of_scope.tsv` | Pathological/dysfunctional terms — curator decides |
+| `src/templates/<name>-reports/out_of_scope.tsv` | Pathological/dysfunctional terms |
 | `src/templates/<name>-reports/name_corrections.tsv` | Source-label → corrected-label rewrites |
+| `src/templates/<name>-reports/manual_curation.tsv` | Group terms not fitting simple `part_of` pattern |
 | `bulk_ntr_workflow/outputs/definitions/input/*.json` | Per-group input for subagents |
 | `bulk_ntr_workflow/outputs/definitions/*.json` | Per-group subagent output |
 
 ## ROBOT Template Column Reference
+
+### Leaf template (`<name>.template.tsv`) — asserted SC
 
 | Header | ROBOT directive | Notes |
 |---|---|---|
@@ -167,7 +211,19 @@ After QC:
 | Contributor | AI dcterms:contributor | ORCID IRI |
 | Present_in_taxon | AI RO:0002175 | NCBITaxon IRI |
 | Wikipedia_image | A foaf:depiction | Wikipedia image URL |
-| xref | A oboInOwl:hasDbXref SPLIT=\| | Direct term xrefs: Wikipedia article + FMA ID (pipe-separated) |
+| xref | A oboInOwl:hasDbXref SPLIT=\| | Direct term xrefs: Wikipedia article + FMA ID |
+
+### Groups template (`<name>-groups.template.tsv`) — equivalent class
+
+Same as leaf, with `is_a` / `part_of` replaced by `genus` / `location`:
+
+| Header | ROBOT directive | Notes |
+|---|---|---|
+| genus | EC % | Genus class for the equivalent definition (typically `UBERON:0014892`) |
+| location | EC BFO:0000050 some % | Differentiator class — what the group is `part_of` |
+
+The two columns together generate
+`EquivalentClass(this_term, genus and (part_of some location))`.
 
 ## Tools Available
 
