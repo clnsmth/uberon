@@ -71,8 +71,6 @@ def load_subagent_outputs() -> tuple[dict, dict, dict, dict, dict, list, list]:
     possible         = []
 
     for jf in sorted(DEFS_DIR.glob("*.json")):
-        if jf.parent.name == "input":
-            continue
         with open(jf, encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data, dict):
@@ -138,12 +136,13 @@ def process(name: str) -> None:
           f"{len(confirmed)} confirmed matches, {len(possible)} possible matches")
 
     rows = []
-    updated_defs    = 0
-    updated_images  = 0
-    updated_rels    = 0
-    updated_xrefs   = 0
-    still_pending   = 0
-    still_infer     = 0
+    updated_defs     = 0
+    updated_images   = 0
+    updated_rels     = 0
+    updated_xrefs    = 0
+    still_pending    = 0
+    still_infer      = 0
+    still_unknown_rel: list[str] = []
     excluded_labels: set[str] = {m["label"] for m in confirmed}
 
     with open(INPUT_TSV, newline="", encoding="utf-8") as f:
@@ -217,9 +216,10 @@ def process(name: str) -> None:
             elif parent_id and (is_a_val.startswith("INFER:") or
                                 is_a_val.startswith("UNRESOLVABLE:") or
                                 is_a_val.startswith("NEEDS_MAPPING:")):
-                # Subagent resolved the parent but not the rel type — keep as-is with real ID
-                row[COL_IS_A]    = parent_id
-                row[COL_PART_OF] = parent_id
+                # Subagent resolved parent but not relationship type — leave blank for curator
+                row[COL_IS_A]    = ""
+                row[COL_PART_OF] = ""
+                still_unknown_rel.append(label)
 
             # Count remaining issues
             if PENDING_PATTERN.match(row[COL_DEF].strip()):
@@ -243,6 +243,10 @@ def process(name: str) -> None:
     print(f"  Relationships resolved:    {updated_rels}")
     print(f"  Still [PENDING] defs:      {still_pending}")
     print(f"  Still INFER relationships: {still_infer}")
+    print(f"  Relationship unresolved:   {len(still_unknown_rel)}")
+    if still_unknown_rel:
+        for lbl in still_unknown_rel:
+            print(f"    ⚠ {lbl}")
     print(f"  Excluded (confirmed match):{len(excluded_labels)}")
 
     # Append confirmed/possible matches to candidates.tsv

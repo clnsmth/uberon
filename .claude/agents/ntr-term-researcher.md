@@ -86,17 +86,20 @@ Apply in order, stop when you have enough for a good definition:
    Extract passages mentioning the term label — parent articles usually describe sub-structures.
 3. **WebSearch fallback**: Search `"{term label}" anatomy`.
 
-Also: while on the parent Wikipedia page, look for an image URL (infobox or anatomy diagram)
-that illustrates the parent structure. Use this as the `wikipedia_image` for all terms in the group.
+**Wikipedia article URL**: when you successfully fetch a dedicated Wikipedia article for a term,
+record the article page URL in `xrefs` as `Wikipedia:Article_Title` (the title exactly as it
+appears in the URL path, with underscores — e.g. `Wikipedia:Articularis_genus_muscle`). This is
+the page URL, not the image URL. Only record this when the term has its own dedicated article,
+not when content came from a parent article.
 
-Record the Wikipedia **article page URL** (not the image URL) for each term where you found a
-dedicated article (e.g. `https://en.wikipedia.org/wiki/Articularis_genus_muscle`). This goes in
-`xrefs` as `Wikipedia:Article_Title` (using the article title exactly as it appears in the URL,
-with underscores). If the term shares a parent article rather than having its own, omit the Wikipedia xref.
+**Wikipedia image**: when you find an image on a Wikipedia article, check its caption or alt text
+to confirm it illustrates the term or its immediate parent structure. If the caption describes an
+unrelated structure or is generic (e.g. a full-body diagram where the target muscle is not
+labelled), do not record the image. Only record image URLs that are clearly relevant.
 
-Also record any **FMA ID** for the term itself (not the parent) if OLS4 returns one as a cross-
-reference on a confirmed or candidate match: format `FMA:NNNNN`. Combine Wikipedia and FMA into a
-pipe-separated string: `"Wikipedia:Article_Title|FMA:NNNNN"`.
+**FMA ID**: if OLS4 returns an FMA cross-reference for the term itself (not the parent), record it
+as `FMA:NNNNN`. Combine with the Wikipedia xref as a pipe-separated string in `xrefs`:
+`"Wikipedia:Article_Title|FMA:NNNNN"`.
 
 Note: Stage 1 may have already pre-populated an FMA ID in the xref cell (when the term's own input
 IRI was an FMA IRI). The merge step will append without duplication, so just emit whatever you find.

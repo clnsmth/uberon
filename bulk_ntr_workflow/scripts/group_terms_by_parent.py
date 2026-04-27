@@ -146,18 +146,11 @@ def process() -> None:
         parent_id = data["parent_id"]
         group_name = make_group_name(parent_id, data.get("parent_label", ""))
 
-        # Derive Wikipedia URLs (best-effort from parent label if available)
-        wikipedia_urls = derive_wikipedia_urls(data.get("parent_label", ""))
-
         out = {
-            "group_name":     group_name,
-            "parent_id":      parent_id,
-            "parent_label":   data.get("parent_label", ""),
-            "wikipedia_urls": wikipedia_urls,
-            "note": (
-                "parent_label and wikipedia_urls are best-effort; "
-                "subagent should resolve parent label via OLS4 and refine Wikipedia URL."
-            ),
+            "group_name":   group_name,
+            "parent_id":    parent_id,
+            "parent_label": data.get("parent_label", ""),
+            "note": "parent_label is best-effort; subagent should resolve via OLS4.",
             "terms": data["terms"],
         }
 

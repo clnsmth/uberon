@@ -60,10 +60,11 @@ ERROR_HEADERS = ["label", "as_iri", "issue_type", "parent_id", "parent_label", "
 # Columns for candidates.tsv
 CANDIDATE_HEADERS = ["label", "as_iri", "uberon_id", "note"]
 
-SUBSET_IRI      = "http://purl.obolibrary.org/obo/uberon/core#added_by_HRA"
-CREATION_DATE   = f"{date.today().isoformat()}T00:00:00Z"
-CONTRIBUTOR_IRI = "https://orcid.org/0000-0002-7073-9172"
-TAXON_IRI       = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
+SUBSET_IRI    = "http://purl.obolibrary.org/obo/uberon/core#added_by_HRA"
+CREATION_DATE = f"{date.today().isoformat()}T00:00:00Z"
+TAXON_IRI     = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
+
+ORCID_RE = re.compile(r'^https://orcid\.org/\d{4}-\d{4}-\d{4}-\d{3}[\dX]$')
 
 DEFAULT_START_ID = 9900001
 
@@ -185,8 +186,26 @@ def write_tsv(path: Path, headers: list[str], rows: list[list]) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+def resolve_contributor(contributor_arg: str | None) -> str:
+    """Return a validated ORCID IRI, prompting if not supplied."""
+    if contributor_arg:
+        iri = contributor_arg.strip()
+        if not iri.startswith("https://orcid.org/"):
+            iri = f"https://orcid.org/{iri}"
+        if not ORCID_RE.match(iri):
+            sys.exit(f"Invalid ORCID format: {iri}\nExpected: https://orcid.org/XXXX-XXXX-XXXX-XXXX")
+        return iri
+    while True:
+        raw = input("Contributor ORCID (e.g. https://orcid.org/0000-0000-0000-0000): ").strip()
+        if not raw.startswith("https://orcid.org/"):
+            raw = f"https://orcid.org/{raw}"
+        if ORCID_RE.match(raw):
+            return raw
+        print(f"  Invalid format, try again.")
+
+
 def process(input_path: Path, table_filter: str | None, start_id: int, name: str,
-            limit: int | None = None) -> None:
+            contributor_iri: str, limit: int | None = None) -> None:
     suffix = input_path.suffix.lower()
     if suffix in (".xlsx", ".xlsm"):
         records = read_xlsx(input_path, table_filter)
@@ -273,10 +292,9 @@ def process(input_path: Path, table_filter: str | None, start_id: int, name: str
         def_xref = format_refs(refs, iri)
         # Pre-populate xref with FMA ID if the term's own IRI is an FMA IRI
         own_fma = fma_id_from_iri(iri) if FMA_IRI_RE.search(iri) else ""
-        counter += 1
 
         template_rows.append([
-            f"http://purl.obolibrary.org/obo/UBERON_{counter - 1}",
+            f"http://purl.obolibrary.org/obo/UBERON_{counter}",
             label,
             "[PENDING]",
             def_xref,
@@ -284,16 +302,14 @@ def process(input_path: Path, table_filter: str | None, start_id: int, name: str
             part_of_val,
             SUBSET_IRI,
             CREATION_DATE,
-            CONTRIBUTOR_IRI,
+            contributor_iri,
             TAXON_IRI,
             "",       # Wikipedia_image — filled by subagent
             own_fma,  # xref — FMA from source IRI; subagent adds Wikipedia + additional FMA
         ])
+        counter += 1
 
     # Write working copy of template
-    write_tsv(WORK_TSV.parent / WORK_TSV.name,
-              TEMPLATE_HEADERS + TEMPLATE_HEADERS,  # placeholder; use proper writer below
-              [])
     with open(WORK_TSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f, delimiter="\t")
         writer.writerow(TEMPLATE_HEADERS)
@@ -353,8 +369,14 @@ def main():
         "--limit", type=int, default=None,
         help="Process only the first N terms (for testing)"
     )
+    parser.add_argument(
+        "--contributor", default=None,
+        help="Contributor ORCID IRI (e.g. https://orcid.org/0000-0000-0000-0000). "
+             "Prompted interactively if omitted."
+    )
     args = parser.parse_args()
-    process(Path(args.input), args.table, args.start_id, args.name, args.limit)
+    contributor_iri = resolve_contributor(args.contributor)
+    process(Path(args.input), args.table, args.start_id, args.name, contributor_iri, args.limit)
 
 
 if __name__ == "__main__":
