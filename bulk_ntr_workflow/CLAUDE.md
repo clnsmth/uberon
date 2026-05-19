@@ -109,7 +109,9 @@ Each subagent:
     confirmed_matches, possible_matches, out_of_scope, name_corrections, manual_curation,
     unresolvable
 
-**Do not launch more than 8 subagents in parallel** (Playwright/Wikipedia rate limits).
+**Do not launch more than 8 subagents in parallel** (Wikimedia per-IP rate limits;
+the `fetch-wiki-info-api` skill retries on 429 with exponential backoff but throughput
+degrades sharply if every worker is being throttled). 6–8 is the validated sweet spot.
 
 ## Stage 4: Merge
 
@@ -266,10 +268,11 @@ The two columns together generate
 MCP servers (configured in repo-root `.mcp.json`):
 - `ols4` — OLS4 ontology search (UBERON, FMA, etc.)
 - `artl-mcp` — literature lookup (PMID, DOI)
-- `playwright` — complex web navigation (Wikipedia parent articles)
 
 Skills (`.claude/skills/`):
-- `fetch-wiki-info` — Wikidata + Wikipedia structured fetch
+- `fetch-wiki-info-api` — Wikidata + Wikipedia structured fetch via HTTP APIs
+  (covers both specific-term articles and, when called with a parent label,
+  parent-article passage extraction). See its `VALIDATION.md` for A/B results.
 
 Agents (`.claude/agents/`):
 - `ntr-term-researcher` — Stage 3 subagent (this workflow)
