@@ -26,6 +26,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_DIR = REPO_ROOT / "src" / "templates"
 ODK_YAML = REPO_ROOT / "src" / "ontology" / "uberon-odk.yaml"
 ONTOLOGY_DIR = REPO_ROOT / "src" / "ontology"
+EDIT_OBO = REPO_ROOT / "src" / "ontology" / "uberon-edit.obo"
+COMPONENT_IMPORT_PREFIX = "import: http://purl.obolibrary.org/obo/uberon/components/"
 
 
 def discover_templates(name: str) -> list[Path]:
@@ -63,6 +65,45 @@ def insert_entries(yaml_text: str, entries: list[str]) -> str:
     return yaml_text[:idx] + "".join(entries) + yaml_text[idx:]
 
 
+def add_imports_to_edit_obo(components: list[str]) -> list[str]:
+    """Add `import:` lines for each component to uberon-edit.obo, keeping the
+    components/ import block sorted alphabetically. Returns the list of components
+    that were newly added (i.e. excludes ones already present).
+    """
+    lines = EDIT_OBO.read_text().splitlines(keepends=True)
+    existing = {
+        line.strip()[len("import: "):]
+        for line in lines
+        if line.startswith(COMPONENT_IMPORT_PREFIX)
+    }
+    new_iris = []
+    for component in components:
+        iri = f"http://purl.obolibrary.org/obo/uberon/components/{component}"
+        if iri not in existing:
+            new_iris.append((component, iri))
+
+    if not new_iris:
+        return []
+
+    block_start = next(
+        (i for i, l in enumerate(lines) if l.startswith(COMPONENT_IMPORT_PREFIX)),
+        None,
+    )
+    if block_start is None:
+        raise RuntimeError(
+            f"No `{COMPONENT_IMPORT_PREFIX}` lines found in {EDIT_OBO.name}; "
+            "cannot determine where to insert new component imports."
+        )
+    block_end = block_start
+    while block_end < len(lines) and lines[block_end].startswith(COMPONENT_IMPORT_PREFIX):
+        block_end += 1
+
+    block = lines[block_start:block_end] + [f"{COMPONENT_IMPORT_PREFIX}{c}\n" for c, _ in new_iris]
+    block.sort()
+    EDIT_OBO.write_text("".join(lines[:block_start] + block + lines[block_end:]))
+    return [c for c, _ in new_iris]
+
+
 def register(name: str) -> list[Path]:
     templates = discover_templates(name)
     if not templates:
@@ -95,6 +136,15 @@ def register(name: str) -> list[Path]:
         print(f"Skipped {len(skipped)} already-registered template(s):")
         for tpl in skipped:
             print(f"  = {component_filename(tpl)}  ←  {tpl.name}")
+
+    all_components = [component_filename(tpl) for tpl in templates]
+    added_imports = add_imports_to_edit_obo(all_components)
+    if added_imports:
+        print(f"\nAdded {len(added_imports)} import(s) to {EDIT_OBO.relative_to(REPO_ROOT)}:")
+        for c in added_imports:
+            print(f"  + import: .../components/{c}")
+    else:
+        print(f"\nAll component imports already present in {EDIT_OBO.name}.")
 
     return registered
 
