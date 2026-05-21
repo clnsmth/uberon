@@ -1200,6 +1200,8 @@ composite-diff: reports/release-diff-composite.txt
 # Saves someone the hassle of typing 'make composite-metazoan.obo composite-vertebrate.obo'
 composites: composite-metazoan.obo composite-vertebrate.obo
 
+# So you can run `make biomappings`
+biomappings: $(MAPPINGDIR)/biomappings.sssom.tsv
 
 # ----------------------------------------
 # SSSOM MAPPINGS
