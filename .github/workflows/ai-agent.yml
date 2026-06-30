@@ -13,7 +13,7 @@
 name: AI Agent GitHub Mentions
 
 env:
-  AGENT_NAME: dragon-ai-agent
+  AGENT_NAME: clnsmth-ai-agent
   MODEL: gemini-3.5-flash
   TOOLS_DIR: ${{ github.workspace }}/tools
   TIMEOUT_MINUTES: 30
@@ -35,7 +35,7 @@ on:
         description: "The request/prompt for the agent"
         required: true
   # `assigned` lets authorized controllers dispatch work by assigning
-  # `dragon-ai-agent` directly.
+  # `clnsmth-ai-agent` directly.
   issues:
     types: [opened, edited, assigned]
   issue_comment:
@@ -78,7 +78,7 @@ jobs:
               allowedUsers = ["cmungall"];
             }
 
-            const agentName = process.env.AGENT_NAME || "dragon-ai-agent";
+            const agentName = process.env.AGENT_NAME || "clnsmth-ai-agent";
 
             if (context.eventName === "workflow_dispatch") {
               const inputs = context.payload.inputs;
