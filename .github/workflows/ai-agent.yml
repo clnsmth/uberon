@@ -14,7 +14,7 @@ name: AI Agent GitHub Mentions
 
 env:
   AGENT_NAME: dragon-ai-agent
-  MODEL: gemini-2.5-pro
+  MODEL: gemini-3.5-flash
   TOOLS_DIR: ${{ github.workspace }}/tools
   TIMEOUT_MINUTES: 30
 
