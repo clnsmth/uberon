@@ -1,4 +1,4 @@
-name: Claude Code Review
+name: Gemini Code Review
 
 on:
   pull_request:
@@ -11,11 +11,11 @@ on:
         type: number
 
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+  group: gemini-review-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
-  claude-review:
+  gemini-review:
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
@@ -68,24 +68,20 @@ jobs:
           uv pip install aurelian "wrapt>=1.17.2"
           echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
 
-      - name: Run Claude Code Review
-        uses: anthropics/claude-code-action@v1
+      - name: Run Gemini Code Review
+        uses: google-github-actions/run-gemini-cli@v0.1.22
+        env:
+          GEMINI_TRUST_WORKSPACE: "true"
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.ai4c-token.outputs.token }}
-          track_progress: ${{ github.event_name == 'pull_request' }}
-          # PRs opened by the ai4c GitHub App should still be reviewable.
-          allowed_bots: "claude,github-actions,ai4c-agent"
-          claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api:*),Bash(obo-grep.pl:*),Bash(aurelian:*),Bash(cat:*),Bash(sed:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(find:*),Bash(ls:*),Bash(rg:*)"
-
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ env.PR_NUMBER }}
 
             Review this pull request for the Uberon ontology repository.
 
-            Follow the repository instructions in `CLAUDE.md`.
+            Follow the repository instructions in `GEMINI.md`.
 
             When you need to inspect ontology content in `src/ontology/uberon-edit.obo`, use only:
             - `obo-grep.pl -r 'id: UBERON:NNNNNNN' src/ontology/uberon-edit.obo`
@@ -96,7 +92,7 @@ jobs:
             - Definitions, xrefs, and PMIDs being real and adequately supportive
             - Obsolete-term handling and replacement or consider tags being safe
             - OBO and ODK conventions being preserved
-            - Workflow, auth, and repo-configuration regressions when the PR touches `.github` or `.claude`
+            - Workflow, auth, and repo-configuration regressions when the PR touches `.github` or `.claude` (or `.gemini` or `.agents`)
 
             Be constructive and specific. For each issue found, indicate severity:
             - 🔴 CRITICAL: Must fix before merge

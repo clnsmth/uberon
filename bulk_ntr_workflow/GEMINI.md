@@ -269,11 +269,9 @@ MCP servers (configured in repo-root `.mcp.json`):
 - `ols4` — OLS4 ontology search (UBERON, FMA, etc.)
 - `artl-mcp` — literature lookup (PMID, DOI)
 
-Skills (`.claude/skills/`):
+Skills and Agents (`.agents/skills/`):
 - `fetch-wiki-info-api` — Wikidata + Wikipedia structured fetch via HTTP APIs
   (covers both specific-term articles and, when called with a parent label,
   parent-article passage extraction). See its `VALIDATION.md` for A/B results.
-
-Agents (`.claude/agents/`):
 - `ntr-term-researcher` — Stage 3 subagent (this workflow)
 - `ontology-term-lookup` — structured OLS4 term lookup

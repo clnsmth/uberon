@@ -1,13 +1,13 @@
 ## Quick start
 
-This workflow is run interactively by a curator from a Claude Code session.
+This workflow is run interactively by a curator from a Gemini CLI session.
 
 1. `cd bulk_ntr_workflow`
-2. Start Claude Code in this directory: `claude`
+2. Start Gemini CLI in this directory: `gemini`
 3. Drop the source spreadsheet into `source_data/` (or point at the repo-root copy of `hra_unmapped-asct-term-list-with-refs.xlsx`)
-4. Ask Claude to run the workflow — e.g. *"Run the NTR workflow for the muscular-system table, name hra-muscular, starting at UBERON:9900001"*
+4. Ask Gemini to run the workflow — e.g. *"Run the NTR workflow for the muscular-system table, name hra-muscular, starting at UBERON:9900001"*
 
-Claude picks up `CLAUDE.md` in this folder, which is the authoritative spec for the pipeline (stages 1–5, input format, QC checklist, ROBOT template columns, tools/agents/skills). Start there if you want to understand or modify what runs.
+Gemini picks up `GEMINI.md` in this folder, which is the authoritative spec for the pipeline (stages 1–5, input format, QC checklist, ROBOT template columns, tools/agents/skills). Start there if you want to understand or modify what runs.
 
 ## What the workflow does
 
@@ -19,13 +19,13 @@ Generates ROBOT template TSVs for UBERON new term requests from HRA ASCTB unmapp
 - **Stage 4** — `merge_definitions.py` produces the final template
 - **Stage 5** — `register_templates.py` registers templates with ODK
 
-See [CLAUDE.md](CLAUDE.md) for full details and [ROADMAP.md](ROADMAP.md) for planned work.
+See [GEMINI.md](GEMINI.md) for full details and [ROADMAP.md](ROADMAP.md) for planned work.
 
 ## Layout
 
 ```
 bulk_ntr_workflow/
-├── CLAUDE.md         # workflow spec (read by Claude on session start)
+├── GEMINI.md         # workflow spec (read by Gemini on session start)
 ├── ROADMAP.md        # planned work
 ├── scripts/          # stage 1/2/4/5 Python scripts
 ├── source_data/      # drop input xlsx/csv here

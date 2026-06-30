@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Edit",
+      "MultiEdit",
+      "NotebookEdit",
+      "FileEdit",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ]
+  },
+  "hooks": {
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "name": "completion-verifier",
+            "type": "command",
+            "command": "python3 .gemini/hooks/completion_verifier.py",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
