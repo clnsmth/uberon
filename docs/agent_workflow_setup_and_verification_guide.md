@@ -101,7 +101,7 @@ This tests the full agent capability, including checking out terms, verifying th
      4. Checks the term back in via `obo-checkin.pl`.
      5. Reserializes the edit file using `robot convert`.
      6. Commits and signs off with `@clnsmth-ai-agent`.
-     7. Pushes the branch and creates a Pull Request using `gh pr create`.
+     7. Pushes the branch and creates a Pull Request targeting your fork using `gh pr create --repo <owner/repo>`.
    * The agent leaves a comment on the original issue referencing the new PR.
 
 ---

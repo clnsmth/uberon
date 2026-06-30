@@ -310,7 +310,7 @@ jobs:
                (unless requested to update an existing branch or PR, in which case check out and work on that branch)
             2. Make your changes and commit with descriptive messages
             3. Push the branch: `git push -u origin ${{ fromJSON(needs.check-mention.outputs.result).branchName }}`
-            4. Create a PR using `gh pr create` with a clear title and description
+            4. Create a PR targeting the current fork using `gh pr create --repo ${{ github.repository }}` with a clear title and description
 
             COMMUNICATING:
             - Use `gh` CLI directly to interact with the user on GitHub

@@ -74,7 +74,7 @@ This includes instructions for editing the uberon ontology.
 - if there is an existing PR which you started then checkout that branch and continue, rather than starting a new PR (unless you explicitly want to abandon the original PR, e.g. it was on completely the wrong tracks)
 - always make clear detailed commit messages, saying what you did and why
 - always sign your commits `@clnsmth-ai-agent`
-- create PRs using `gh pr create ...`
+- create PRs targeting the current fork using `gh pr create --repo <owner/repo> ...`
 - File PRs with clear descriptions, and sign your PR
 
 ## Handling GitHub issues and requests
