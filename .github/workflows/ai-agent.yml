@@ -4,7 +4,8 @@
 # and runs Gemini CLI to respond.
 #
 # Required secrets:
-# - PAT_FOR_PR
+# - APP_ID (GitHub App ID)
+# - APP_PRIVATE_KEY (GitHub App Private Key in PEM format)
 # - GEMINI_API_KEY
 #
 # Configuration:
@@ -13,7 +14,7 @@
 name: AI Agent GitHub Mentions
 
 env:
-  AGENT_NAME: clnsmth-ai-agent
+  AGENT_NAME: ontology-agent
   MODEL: gemini-3.5-flash
   TOOLS_DIR: ${{ github.workspace }}/tools
   TIMEOUT_MINUTES: 30
@@ -35,7 +36,7 @@ on:
         description: "The request/prompt for the agent"
         required: true
   # `assigned` lets authorized controllers dispatch work by assigning
-  # `clnsmth-ai-agent` directly.
+  # the agent directly.
   issues:
     types: [opened, edited, assigned]
   issue_comment:
@@ -54,18 +55,26 @@ jobs:
       pull-requests: write
     outputs:
       result: ${{ steps.check.outputs.result }}
+      token: ${{ steps.generate-token.outputs.token }}
     steps:
+      - name: Generate token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
-          token: ${{ secrets.PAT_FOR_PR }}
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Check for qualifying mention
         id: check
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.PAT_FOR_PR }}
+          github-token: ${{ steps.generate-token.outputs.token }}
           script: |
             const fs = require("fs");
 
@@ -78,7 +87,7 @@ jobs:
               allowedUsers = ["cmungall"];
             }
 
-            const agentName = process.env.AGENT_NAME || "clnsmth-ai-agent";
+            const agentName = process.env.AGENT_NAME || "ontology-agent";
 
             if (context.eventName === "workflow_dispatch") {
               const inputs = context.payload.inputs;
@@ -140,7 +149,7 @@ jobs:
             }
 
             const isAllowed = allowedUsers.includes(userLogin);
-            const mentionRegex = new RegExp(`@${agentName}\\s+please\\s+([\\s\\S]*)`, "i");
+            const mentionRegex = new RegExp(`@\${agentName}(\\\\[bot\\])?\\\\s+please\\\\s+([\\\\s\\\\S]*)`, "i");
             const mentionMatch = content.match(mentionRegex);
             // On synchronize we want this workflow to revalidate on push without
             // re-dispatching the agent from a stale PR body mention.
@@ -152,13 +161,13 @@ jobs:
             const isAgentAssignment =
               (context.eventName === "issues" || context.eventName === "pull_request") &&
               context.payload.action === "assigned" &&
-              context.payload.assignee?.login === agentName;
+              (context.payload.assignee?.login === agentName || context.payload.assignee?.login === `${agentName}[bot]`);
             const hasQualifiedBodyMention =
               isAllowed && shouldHonorBodyMention && mentionMatch !== null;
             const qualifiedMention =
               hasQualifiedBodyMention || (isAllowed && isAgentAssignment);
             const prompt = hasQualifiedBodyMention
-              ? mentionMatch[1].trim()
+              ? mentionMatch[2].trim()
               : (isAgentAssignment
                 ? "You were assigned to this item. Read the full GitHub context, identify the next concrete action, and carry it through."
                 : "");
@@ -202,7 +211,7 @@ jobs:
 
             try {
               const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-              const commentBody = `🤖 Working on it...\n\nFollow along: [View workflow run](${runUrl})\n\n*— @${agentName}*`;
+              const commentBody = `🤖 Working on it...\n\nFollow along: [View workflow run](${runUrl})\n\n*— @\${agentName}*`;
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -249,7 +258,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
-          token: ${{ secrets.PAT_FOR_PR }}
+          token: ${{ needs.check-mention.outputs.token }}
 
       - name: Configure Git
         run: |
@@ -278,7 +287,7 @@ jobs:
           echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Export GitHub token for gh CLI
-        run: echo "GH_TOKEN=${{ secrets.PAT_FOR_PR }}" >> "$GITHUB_ENV"
+        run: echo "GH_TOKEN=${{ needs.check-mention.outputs.token }}" >> "$GITHUB_ENV"
 
       - name: Run Gemini CLI
         uses: google-github-actions/run-gemini-cli@v0.1.22
