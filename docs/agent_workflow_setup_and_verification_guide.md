@@ -1,6 +1,6 @@
 # Setup and Verification Guide for `@ontology-agent`
 
-This guide outlines the manual configuration steps and tests required to transition the Uberon fork's agentic workflows to Google Gemini and run under a secure, dedicated **GitHub App** named `@ontology-agent` (or `@ontology-agent-edi`).
+This guide outlines the manual configuration steps and tests required to transition the Uberon fork's agentic workflows to Google Gemini and run under a secure, dedicated **GitHub App** named `@ontology-agent`.
 
 ---
 
@@ -13,7 +13,7 @@ Using a GitHub App is the industry best practice because it automatically genera
 1. **Navigate to App Creation:**
    * Go to your personal GitHub settings (or Organization settings) and select **Developer Settings > GitHub Apps > New GitHub App**.
 2. **App Details:**
-   * **GitHub App name:** Enter `ontology-agent` (or `ontology-agent-edi` if the name is already taken on GitHub).
+   * **GitHub App name:** Enter `ontology-agent`.
    * **Homepage URL:** Enter your repository fork's URL.
    * **Webhook:** Uncheck **Active** (the workflow is event-triggered, so a direct webhook listener is not needed).
 3. **Repository Permissions:**
