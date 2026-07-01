@@ -266,6 +266,11 @@ jobs:
           fetch-depth: 1
           token: ${{ steps.generate-token.outputs.token }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Configure Git
         run: |
           git config --global user.name "${{ env.AGENT_NAME }}[bot]"
