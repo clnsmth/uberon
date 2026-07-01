@@ -148,7 +148,7 @@ jobs:
             }
 
             const isAllowed = allowedUsers.includes(userLogin);
-            const mentionRegex = new RegExp(`@${agentName}(\\\\[bot\\])?\\\\s+please\\\\s+([\\\\s\\\\S]*)`, "i");
+            const mentionRegex = new RegExp(`@${agentName}(\\[bot\\])?\\s+please\\s+([\\s\\S]*)`, "i");
             const mentionMatch = content.match(mentionRegex);
             // On synchronize we want this workflow to revalidate on push without
             // re-dispatching the agent from a stale PR body mention.
