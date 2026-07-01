@@ -55,7 +55,6 @@ jobs:
       pull-requests: write
     outputs:
       result: ${{ steps.check.outputs.result }}
-      token: ${{ steps.generate-token.outputs.token }}
     steps:
       - name: Generate token
         id: generate-token
@@ -254,11 +253,18 @@ jobs:
     runs-on: ubuntu-latest
     container: ${{ fromJSON(needs.check-mention.outputs.result).useOdkContainer && 'obolibrary/odkfull:v1.6' || null }}
     steps:
+      - name: Generate token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
-          token: ${{ needs.check-mention.outputs.token }}
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Configure Git
         run: |
@@ -287,7 +293,7 @@ jobs:
           echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Export GitHub token for gh CLI
-        run: echo "GH_TOKEN=${{ needs.check-mention.outputs.token }}" >> "$GITHUB_ENV"
+        run: echo "GH_TOKEN=${{ steps.generate-token.outputs.token }}" >> "$GITHUB_ENV"
 
       - name: Run Gemini CLI
         uses: google-github-actions/run-gemini-cli@v0.1.22
