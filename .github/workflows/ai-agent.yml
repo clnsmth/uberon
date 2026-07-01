@@ -296,6 +296,7 @@ jobs:
         run: echo "GH_TOKEN=${{ steps.generate-token.outputs.token }}" >> "$GITHUB_ENV"
 
       - name: Run Gemini CLI
+        id: gemini
         uses: google-github-actions/run-gemini-cli@v0.1.22
         env:
           GEMINI_CLI_TRUST_WORKSPACE: "true"
@@ -344,3 +345,20 @@ jobs:
             - Triggered by: @${{ fromJSON(needs.check-mention.outputs.result).user }}
             - Run: [View workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
             ```
+
+      - name: Post Gemini Response Comment
+        if: steps.gemini.outputs.summary != ''
+        uses: actions/github-script@v8
+        env:
+          GEMINI_SUMMARY: ${{ steps.gemini.outputs.summary }}
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const summary = process.env.GEMINI_SUMMARY;
+            const itemNumber = parseInt("${{ fromJSON(needs.check-mention.outputs.result).itemNumber }}", 10);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: itemNumber,
+              body: summary,
+            });
