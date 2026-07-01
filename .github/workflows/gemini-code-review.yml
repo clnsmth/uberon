@@ -34,12 +34,12 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Generate ai4c-agent token
+      - name: Generate token
         id: ai4c-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
-          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Checkout PR branch (for workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
