@@ -148,7 +148,7 @@ jobs:
             }
 
             const isAllowed = allowedUsers.includes(userLogin);
-            const mentionRegex = new RegExp(`@\${agentName}(\\\\[bot\\])?\\\\s+please\\\\s+([\\\\s\\\\S]*)`, "i");
+            const mentionRegex = new RegExp(`@${agentName}(\\\\[bot\\])?\\\\s+please\\\\s+([\\\\s\\\\S]*)`, "i");
             const mentionMatch = content.match(mentionRegex);
             // On synchronize we want this workflow to revalidate on push without
             // re-dispatching the agent from a stale PR body mention.
@@ -210,7 +210,7 @@ jobs:
 
             try {
               const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-              const commentBody = `🤖 Working on it...\n\nFollow along: [View workflow run](${runUrl})\n\n*— @\${agentName}*`;
+              const commentBody = `🤖 Working on it...\n\nFollow along: [View workflow run](${runUrl})\n\n*— @${agentName}*`;
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
