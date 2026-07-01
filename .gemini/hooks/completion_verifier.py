@@ -60,7 +60,7 @@ def main():
         print(json.dumps({"ok": True}))
         return
 
-    prompt = f"""You are a completion verifier for the Uberon AI agent (@ontology-agent). Your job is to check whether the agent actually completed its task before allowing it to stop.
+    prompt = f"""You are a completion verifier for the Uberon AI agent (@clnsmth-ontology-agent). Your job is to check whether the agent actually completed its task before allowing it to stop.
 
 Read the following transcript/context and determine:
 1. What was the user's request?

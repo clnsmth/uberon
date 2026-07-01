@@ -14,7 +14,7 @@
 name: AI Agent GitHub Mentions
 
 env:
-  AGENT_NAME: ontology-agent
+  AGENT_NAME: clnsmth-ontology-agent
   MODEL: gemini-3.5-flash
   TOOLS_DIR: ${{ github.workspace }}/tools
   TIMEOUT_MINUTES: 30
@@ -87,7 +87,7 @@ jobs:
               allowedUsers = ["cmungall"];
             }
 
-            const agentName = process.env.AGENT_NAME || "ontology-agent";
+            const agentName = process.env.AGENT_NAME || "clnsmth-ontology-agent";
 
             if (context.eventName === "workflow_dispatch") {
               const inputs = context.payload.inputs;
